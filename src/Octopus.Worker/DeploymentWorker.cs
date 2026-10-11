@@ -307,6 +307,7 @@ public sealed class DeploymentWorker(
             app.UpdatedAt = DateTimeOffset.UtcNow;
             Log($"Running at /apps/{app.Slug}/ -> 127.0.0.1:{port} (container:{deployment.ContainerPort}).");
             await SaveAsync();
+            await docker.PruneOldImagesAsync(app.Slug, image, Log, ct);
             await DeploymentQueries.PruneAsync(db, app.Id, ct: ct);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)

@@ -183,6 +183,8 @@ container stopped) and the route switched. A bad image is removed and the
 deployment marked `Failed` — the previous container keeps serving throughout.
 A worker crash between start and promote leaves the sidecar behind; the next
 recovery pass removes it (its name is deterministic) before requeueing.
+After a successful promote, superseded image tags for the app are removed so
+the host disk does not grow by one image per deploy.
 Probes are loopback-only, so there is no SSRF surface.
 
 ## API

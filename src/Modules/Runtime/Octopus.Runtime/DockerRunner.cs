@@ -37,6 +37,44 @@ public sealed class DockerRunner
     public static string BuildRenameArgs(string sidecarName, string canonicalName) =>
         $"rename \"{sidecarName}\" \"{canonicalName}\"";
 
+    /// <summary>Parses `docker images --format "{{.Repository}}:{{.Tag}}"` output into refs.</summary>
+    public static List<string> ParseImageRefs(string output) =>
+        output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(l => l.Contains(':')).ToList();
+
+    /// <summary>Same-repo tags except the live one (dangling &lt;none&gt; tags are left to docker).</summary>
+    public static List<string> SelectStaleTags(IEnumerable<string> refs, string slug, string keepImage) =>
+        refs.Where(r => r.StartsWith($"octopus-{slug}:", StringComparison.Ordinal)
+            && !string.Equals(r, keepImage, StringComparison.Ordinal)
+            && !r.EndsWith(":<none>", StringComparison.Ordinal)).ToList();
+
+    /// <summary>
+    /// Removes superseded images for an app so the host disk does not grow by
+    /// one tagged image per deploy. Best effort: never throws, returns removals.
+    /// </summary>
+    public async Task<int> PruneOldImagesAsync(string slug, string keepImage, Action<string> log, CancellationToken ct)
+    {
+        try
+        {
+            var list = await ProcessRunner.RunAsync("docker",
+                $"images --format \"{{{{.Repository}}}}:{{{{.Tag}}}}\" --filter \"reference=octopus-{slug}*\"",
+                Environment.CurrentDirectory, TimeSpan.FromSeconds(30), ct);
+            if (list.TimedOut || list.ExitCode != 0) return 0;
+            var stale = SelectStaleTags(ParseImageRefs(list.StdOut), slug, keepImage);
+            if (stale.Count == 0) return 0;
+            log($"Pruning {stale.Count} superseded image(s) for {slug}.");
+            var rm = await ProcessRunner.RunAsync("docker",
+                "rmi " + string.Join(" ", stale.Select(r => $"\"{r}\"")),
+                Environment.CurrentDirectory, TimeSpan.FromMinutes(2), ct);
+            AppendLog(log, rm.StdErr);
+            return rm.ExitCode == 0 ? stale.Count : 0;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
     public async Task<Result<string>> BuildAsync(string contextDir, string imageName, Action<string> log, CancellationToken ct)
     {
         if (!File.Exists(Path.Combine(contextDir, "Dockerfile")))

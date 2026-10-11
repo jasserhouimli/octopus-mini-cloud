@@ -135,4 +135,17 @@ public sealed class DockerQuotaArgsTests
     public void Rename_args_quote_both_names() =>
         Assert.Equal("rename \"octopus-demo-abc12345\" \"octopus-demo\"",
             DockerRunner.BuildRenameArgs("octopus-demo-abc12345", "octopus-demo"));
+
+    [Fact]
+    public void Stale_image_selection_keeps_live_and_skips_dangling()
+    {
+        var refs = DockerRunner.ParseImageRefs("octopus-demo:aaa111\n octopus-demo:bbb222 \noctopus-demo:<none>\nother:1\nnot-a-ref\n");
+        Assert.Equal(4, refs.Count);
+        var stale = DockerRunner.SelectStaleTags(refs, "demo", "octopus-demo:bbb222");
+        Assert.Equal(["octopus-demo:aaa111"], stale);
+    }
+
+    [Fact]
+    public void No_stale_when_only_live_exists() =>
+        Assert.Empty(DockerRunner.SelectStaleTags(["octopus-demo:aaa111"], "demo", "octopus-demo:aaa111"));
 }
