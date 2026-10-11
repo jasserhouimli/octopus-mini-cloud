@@ -72,6 +72,11 @@ public static class DbBootstrap
             db.Database.ExecuteSqlRaw("""ALTER TABLE "Apps" ADD COLUMN "MaxMemoryMb" INTEGER NOT NULL DEFAULT 512;""");
         if (!ColumnExists(db, "Apps", "CpuMillicores"))
             db.Database.ExecuteSqlRaw("""ALTER TABLE "Apps" ADD COLUMN "CpuMillicores" INTEGER NOT NULL DEFAULT 1000;""");
+        if (!ColumnExists(db, "Apps", "CustomDomain"))
+        {
+            db.Database.ExecuteSqlRaw("""ALTER TABLE "Apps" ADD COLUMN "CustomDomain" TEXT NULL;""");
+            db.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_Apps_CustomDomain" ON "Apps" ("CustomDomain");""");
+        }
     }
 
     private static bool ColumnExists(OctopusDbContext db, string table, string column)

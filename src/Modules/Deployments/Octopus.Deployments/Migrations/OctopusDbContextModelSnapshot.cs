@@ -43,6 +43,10 @@ namespace Octopus.Deployments.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("CustomDomain")
+                        .HasMaxLength(253)
+                        .HasColumnType("character varying(253)");
+
                     b.Property<int>("MaxMemoryMb")
                         .HasColumnType("integer");
 
@@ -71,6 +75,9 @@ namespace Octopus.Deployments.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CustomDomain")
+                        .IsUnique();
 
                     b.HasIndex("Slug")
                         .IsUnique();

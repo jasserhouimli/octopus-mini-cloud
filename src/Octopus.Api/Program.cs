@@ -366,6 +366,7 @@ static object ToDto(App a) => new
     a.TargetPort,
     a.MaxMemoryMb,
     a.CpuMillicores,
+    a.CustomDomain,
     url = $"/apps/{a.Slug}/",
     a.CreatedAt,
     a.UpdatedAt,
@@ -449,6 +450,21 @@ app.MapPost("/api/keys/{id:guid}/revoke", async (Guid id, OctopusDbContext db, C
     key.RevokedAt ??= DateTimeOffset.UtcNow;
     await db.SaveChangesAsync(ct);
     return Results.Ok(new { key.Id, key.Name, key.KeyPrefix, key.CreatedAt, key.RevokedAt });
+});
+
+// ---- App custom domain (null/empty clears; unique across apps) ----
+app.MapPut("/api/apps/{id:guid}/domain", async (Guid id, SetDomainRequest? req, OctopusDbContext db, CancellationToken ct) =>
+{
+    var entity = await db.Apps.FindAsync([id], ct);
+    if (entity is null) return Results.NotFound(new { error = "App not found." });
+    var check = AppDomains.Normalize(req?.Domain);
+    if (!check.IsSuccess) return Results.BadRequest(new { error = check.Error });
+    if (check.Value is not null && await db.Apps.AnyAsync(a => a.Id != id && a.CustomDomain == check.Value, ct))
+        return Results.Conflict(new { error = "Domain is already mapped to another app." });
+    entity.CustomDomain = check.Value;
+    entity.UpdatedAt = DateTimeOffset.UtcNow;
+    await db.SaveChangesAsync(ct);
+    return Results.Ok(ToDto(entity));
 });
 
 // ---- App quota (allowlisted memory/cpu caps) ----
@@ -658,5 +674,6 @@ public sealed record CreateAppRequest(string? Name, string? RepoUrl, string? Bra
 public sealed record UpdateAppRequest(string? Branch);
 public sealed record CreateDeploymentRequest(int? ContainerPort, string? ProjectPath, string? DockerfilePath);
 public sealed record SetQuotaRequest(int? MemoryMb, int? CpuMillicores);
+public sealed record SetDomainRequest(string? Domain);
 public sealed record CreateKeyRequest(string? Name);
 public sealed record SetEnvRequest(Dictionary<string, string>? Vars);

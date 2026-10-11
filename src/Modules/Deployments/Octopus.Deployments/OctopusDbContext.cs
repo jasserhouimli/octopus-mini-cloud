@@ -29,6 +29,8 @@ public sealed class OctopusDbContext(DbContextOptions<OctopusDbContext> options)
             e.Property(x => x.RepoUrl).HasMaxLength(500).IsRequired();
             e.Property(x => x.Branch).HasMaxLength(100).IsRequired();
             e.Property(x => x.ContainerName).HasMaxLength(100);
+            e.Property(x => x.CustomDomain).HasMaxLength(253);
+            e.HasIndex(x => x.CustomDomain).IsUnique();
         });
         b.Entity<Deployment>(e =>
         {

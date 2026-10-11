@@ -85,4 +85,30 @@ public sealed class AppValidatorTests
         Assert.False(AppValidator.ChangeBranch(app, branch).IsSuccess);
         Assert.Equal("main", app.Branch);
     }
+
+    [Theory]
+    [InlineData("app.example.com", "app.example.com")]
+    [InlineData(" App.Example.COM ", "app.example.com")]
+    [InlineData("a.b.co", "a.b.co")]
+    public void Normalizes_domains(string input, string expected) =>
+        Assert.Equal(expected, AppDomains.Normalize(input).Value);
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Blank_domain_clears(string? input) =>
+        Assert.Null(AppDomains.Normalize(input).Value);
+
+    [Theory]
+    [InlineData("localhost")]
+    [InlineData("nodot")]
+    [InlineData("1.2.3.4")]
+    [InlineData("-bad.example.com")]
+    [InlineData("bad-.example.com")]
+    [InlineData("has space.example.com")]
+    [InlineData("wild*.example.com")]
+    [InlineData("a.c")]
+    public void Rejects_bad_domains(string input) =>
+        Assert.False(AppDomains.Normalize(input).IsSuccess);
 }

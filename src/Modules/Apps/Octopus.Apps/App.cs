@@ -18,6 +18,8 @@ public sealed class App
     public int MaxMemoryMb { get; set; } = AppQuotas.DefaultMemoryMb;
     /// <summary>CPU cap in millicores (allowlist, see <see cref="AppQuotas"/>).</summary>
     public int CpuMillicores { get; set; } = AppQuotas.DefaultCpuMillicores;
+    /// <summary>Optional custom domain (lowercase FQDN). Null = path routing only.</summary>
+    public string? CustomDomain { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
