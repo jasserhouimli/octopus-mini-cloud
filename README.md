@@ -181,6 +181,8 @@ The new image starts as a sidecar beside the live container on a fresh port
 Only then is the sidecar promoted (`docker rename` to the canonical name, old
 container stopped) and the route switched. A bad image is removed and the
 deployment marked `Failed` — the previous container keeps serving throughout.
+A worker crash between start and promote leaves the sidecar behind; the next
+recovery pass removes it (its name is deterministic) before requeueing.
 Probes are loopback-only, so there is no SSRF surface.
 
 ## API

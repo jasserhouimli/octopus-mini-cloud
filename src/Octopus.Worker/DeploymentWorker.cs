@@ -87,8 +87,16 @@ public sealed class DeploymentWorker(
         // Only lapsed leases are recoverable: a live lease means another worker
         // is actively working the deployment, so it must not be stolen.
         var stale = await DeploymentLeases.ListRecoverableAsync(db, DateTimeOffset.UtcNow, ct);
+        // A crash between sidecar start and promote leaves the sidecar running;
+        // its name is deterministic (slug + deployment id), so remove it here.
+        var docker = new DockerRunner();
+        var appIds = stale.Select(d => d.AppId).ToHashSet();
+        var slugs = await db.Apps.Where(a => appIds.Contains(a.Id))
+            .ToDictionaryAsync(a => a.Id, a => a.Slug, ct);
         foreach (var d in stale)
         {
+            if (slugs.TryGetValue(d.AppId, out var slug))
+                await docker.StopAndRemoveAsync(DockerRunner.SidecarName(slug, d.Id), _ => { }, ct);
             d.Status = DeploymentStatus.Queued;
             d.LeaseOwner = null;
             d.LeaseExpiresAt = null;
