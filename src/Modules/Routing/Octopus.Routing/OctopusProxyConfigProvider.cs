@@ -7,6 +7,9 @@ namespace Octopus.Routing;
 /// <summary>
 /// In-memory YARP config updated from the Apps table (Running apps only).
 /// Route: /apps/{slug}/{**catch-all} -> http://127.0.0.1:{port}/.
+/// Apps with a custom domain additionally get a host route (listed first so
+/// the Host match wins): {domain}/{**catch-all} -> same destination, no
+/// prefix strip. TLS termination is outside this service (reverse proxy up).
 /// </summary>
 public sealed class OctopusProxyConfigProvider : IProxyConfigProvider
 {
@@ -14,12 +17,25 @@ public sealed class OctopusProxyConfigProvider : IProxyConfigProvider
 
     public IProxyConfig GetConfig() => _config;
 
-    public void Update(IReadOnlyList<(string Slug, int Port)> running)
+    public void Update(IReadOnlyList<(string Slug, int Port, string? CustomDomain)> running)
     {
         var routes = new List<RouteConfig>();
         var clusters = new List<ClusterConfig>();
 
-        foreach (var (slug, port) in running)
+        // Host routes first: a path route has no Host constraint, so host
+        // matches must precede them to avoid cross-host path collisions.
+        foreach (var (slug, _, domain) in running)
+        {
+            if (string.IsNullOrWhiteSpace(domain)) continue;
+            routes.Add(new RouteConfig
+            {
+                RouteId = $"app-{slug}-domain",
+                ClusterId = $"app-{slug}",
+                Match = new RouteMatch { Hosts = [domain], Path = "/{**catch-all}" },
+            });
+        }
+
+        foreach (var (slug, port, _) in running)
         {
             var routeId = $"app-{slug}";
             routes.Add(new RouteConfig

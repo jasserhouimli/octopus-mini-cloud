@@ -389,8 +389,8 @@ static void RefreshRoutes(IServiceProvider services, OctopusDbContext db)
     {
         var provider = services.GetRequiredService<OctopusProxyConfigProvider>();
         var running = db.Apps.Where(a => a.Status == AppStatus.Running && a.TargetPort > 0)
-            .Select(a => new { a.Slug, a.TargetPort }).ToList()
-            .Select(x => (x.Slug, x.TargetPort)).ToList();
+            .Select(a => new { a.Slug, a.TargetPort, a.CustomDomain }).ToList()
+            .Select(x => (x.Slug, x.TargetPort, x.CustomDomain)).ToList();
         provider.Update(running);
     }
     catch { /* best effort */ }
@@ -655,8 +655,8 @@ public sealed class RouteRefresher(IServiceProvider services, ILogger<RouteRefre
                 var db = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
                 var provider = scope.ServiceProvider.GetRequiredService<OctopusProxyConfigProvider>();
                 var running = await db.Apps.Where(a => a.Status == AppStatus.Running && a.TargetPort > 0)
-                    .Select(a => new { a.Slug, a.TargetPort }).ToListAsync(stoppingToken);
-                provider.Update(running.Select(x => (x.Slug, x.TargetPort)).ToList());
+                    .Select(a => new { a.Slug, a.TargetPort, a.CustomDomain }).ToListAsync(stoppingToken);
+                provider.Update(running.Select(x => (x.Slug, x.TargetPort, x.CustomDomain)).ToList());
             }
             catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {

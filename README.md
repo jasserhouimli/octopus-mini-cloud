@@ -212,7 +212,10 @@ Probes are loopback-only, so there is no SSRF surface.
 | DELETE | `/api/apps/{id}/env/{key}` | remove one variable |
 | POST | `/api/hooks/github/{id}` | GitHub receiver (`X-GitHub-Event/Delivery`, `X-Hub-Signature-256`) |
 
-Deployed apps: `GET /apps/{slug}/{path...}` (YARP, prefix stripped).
+Deployed apps: `GET /apps/{slug}/{path...}` (YARP, prefix stripped). Apps with
+a custom domain (`PUT /api/apps/{id}/domain`) are also served by Host match at
+`/` with no prefix strip — point your DNS at the host and terminate TLS above
+Octopus (it serves plain HTTP).
 
 Deployment history is capped at the newest 50 per app (with their logs) —
 the worker prunes older records when a deployment reaches a terminal state.
@@ -257,7 +260,7 @@ the worker prunes older records when a deployment reaches a terminal state.
 3. ~~`dotnet` buildpack (no Dockerfile needed)~~ Done (v0.2); ~~health-gated traffic switch~~ Done (v0.4: TCP readiness + inspect gate, bad images fail instead of routing).
 4. ~~CI (build + test + architecture tests + image builds) and compose.~~ Done (v0.3).
 5. ~~API-key auth~~ Done (v0.5); ~~log streaming~~ Done (v0.5: cursor tail + SSE stream). OIDC is future.
-6. ~~Multi-worker leases/heartbeats~~ Done (v0.6). ~~Blue/green~~ Done (v0.7: sidecar start, readiness gate, rename promote). Remaining: custom domains.
+6. ~~Multi-worker leases/heartbeats~~ Done (v0.6). ~~Blue/green~~ Done (v0.7). ~~Custom domains~~ Done (v0.8: validated mapping + Host routes; TLS terminates above Octopus).
 
 ## Repo layout
 
