@@ -53,7 +53,13 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok", time = DateTimeOffset.UtcNow }));
+app.MapGet("/health", (OctopusDbContext db) => Results.Ok(new
+{
+    status = "ok",
+    version = Octopus.BuildingBlocks.BuildInfo.Version,
+    database = DbStartup.IsPostgres(db) ? "postgres" : "sqlite",
+    time = DateTimeOffset.UtcNow,
+}));
 
 app.UseApiKeyAuth();
 app.UseRateLimiter();

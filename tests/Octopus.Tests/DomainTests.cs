@@ -4,6 +4,16 @@ using Octopus.GitHub;
 
 namespace Octopus.Tests;
 
+public sealed class BuildInfoTests
+{
+    [Fact]
+    public void Reports_non_empty_version_and_framework()
+    {
+        Assert.False(string.IsNullOrWhiteSpace(BuildInfo.Version));
+        Assert.False(string.IsNullOrWhiteSpace(BuildInfo.Framework));
+    }
+}
+
 public sealed class SlugTests
 {
     [Theory]
