@@ -145,4 +145,53 @@ public sealed class WebhookServiceTests : IAsyncLifetime
         Assert.Equal(201, await _db.WebhookEvents.CountAsync(e => e.AppId == _appId));
         Assert.Equal(1, await _db.WebhookEvents.CountAsync(e => e.DeliveryId == "d-8"));
     }
+
+    [Fact]
+    public async Task Receipt_redeploy_queues_fresh_deployment()
+    {
+        var first = await SendAsync("push", "d-9", PushBody());
+        Assert.Equal(WebhookOutcome.Queued, first.Outcome);
+        var stored = await _db.WebhookEvents.SingleAsync(e => e.DeliveryId == "d-9");
+
+        var retry = await WebhookService.RedeployAsync(_db, stored.Id, CancellationToken.None);
+        Assert.Equal(WebhookOutcome.Conflict, retry.Outcome); // first attempt still queued
+
+        var deployment = await _db.Deployments.FindAsync([first.DeploymentId!]);
+        deployment!.Status = DeploymentStatus.Failed;
+        await _db.SaveChangesAsync();
+
+        var second = await WebhookService.RedeployAsync(_db, stored.Id, CancellationToken.None);
+        Assert.Equal(WebhookOutcome.Queued, second.Outcome);
+        Assert.NotEqual(first.DeploymentId, second.DeploymentId);
+    }
+
+    [Fact]
+    public async Task Redeploy_rejects_unknown_and_non_push()
+    {
+        var missing = await WebhookService.RedeployAsync(_db, Guid.NewGuid(), CancellationToken.None);
+        Assert.Equal(WebhookOutcome.BadPayload, missing.Outcome);
+
+        var ping = await SendAsync("ping", "d-10", """{"zen":"hi"}""");
+        Assert.Equal(WebhookOutcome.Ping, ping.Outcome);
+        var stored = await _db.WebhookEvents.SingleAsync(e => e.DeliveryId == "d-10");
+        var retry = await WebhookService.RedeployAsync(_db, stored.Id, CancellationToken.None);
+        Assert.Equal(WebhookOutcome.BadPayload, retry.Outcome);
+    }
+
+    [Fact]
+    public async Task Redeploy_conflicts_when_branch_moved_on()
+    {
+        var first = await SendAsync("push", "d-11", PushBody());
+        Assert.Equal(WebhookOutcome.Queued, first.Outcome);
+        var stored = await _db.WebhookEvents.SingleAsync(e => e.DeliveryId == "d-11");
+
+        var app = await _db.Apps.FindAsync([_appId]);
+        app!.Branch = "release";
+        await _db.SaveChangesAsync();
+        foreach (var d in _db.Deployments) d.Status = DeploymentStatus.Failed;
+        await _db.SaveChangesAsync();
+
+        var retry = await WebhookService.RedeployAsync(_db, stored.Id, CancellationToken.None);
+        Assert.Equal(WebhookOutcome.Conflict, retry.Outcome);
+    }
 }

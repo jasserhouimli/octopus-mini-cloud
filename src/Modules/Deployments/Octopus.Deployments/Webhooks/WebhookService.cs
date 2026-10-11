@@ -163,6 +163,59 @@ public static class WebhookService
         return new WebhookResult(WebhookOutcome.Queued, deployment.Id);
     }
 
+    /// <summary>
+    /// Re-runs a stored push receipt as a fresh deployment (e.g. the first
+    /// attempt failed and the delivery is long gone from GitHub's redelivery
+    /// window). Only receipts whose ref still matches the app's tracked branch
+    /// qualify; concurrent work conflicts like a live push.
+    /// </summary>
+    public static async Task<WebhookResult> RedeployAsync(OctopusDbContext db, Guid eventId, CancellationToken ct)
+    {
+        var e = await db.WebhookEvents.FindAsync([eventId], ct);
+        if (e is null)
+            return new WebhookResult(WebhookOutcome.BadPayload, Message: "Webhook event not found.");
+        if (!string.Equals(e.EventType, "push", StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrEmpty(e.CommitSha) || string.IsNullOrEmpty(e.Ref))
+            return new WebhookResult(WebhookOutcome.BadPayload, Message: "Only push receipts with a commit can be redeployed.");
+
+        var app = await db.Apps.FindAsync([e.AppId], ct);
+        if (app is null)
+            return new WebhookResult(WebhookOutcome.AppNotFound, Message: "App not found.");
+
+        if (!string.Equals(e.Ref, $"refs/heads/{app.Branch}", StringComparison.Ordinal))
+            return new WebhookResult(WebhookOutcome.Conflict,
+                Message: $"Receipt ref '{e.Ref}' no longer matches tracked branch '{app.Branch}'.");
+
+        var active = await db.Deployments.AnyAsync(d => d.AppId == app.Id &&
+            (d.Status == DeploymentStatus.Queued || d.Status == DeploymentStatus.Cloning ||
+             d.Status == DeploymentStatus.Building || d.Status == DeploymentStatus.Starting), ct);
+        if (active)
+            return new WebhookResult(WebhookOutcome.Conflict, Message: "A deployment is already in progress.");
+
+        var deployment = new Deployment
+        {
+            Id = Guid.NewGuid(),
+            AppId = app.Id,
+            Status = DeploymentStatus.Queued,
+            ContainerPort = 8080,
+            CommitSha = e.CommitSha,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        app.Status = AppStatus.Deploying;
+        app.UpdatedAt = DateTimeOffset.UtcNow;
+        e.Status = WebhookEventStatus.Queued;
+        e.DeploymentId = deployment.Id;
+
+        db.Deployments.Add(deployment);
+        db.DeploymentLogs.Add(new DeploymentLog
+        {
+            DeploymentId = deployment.Id,
+            Line = $"Redeployed from webhook delivery {e.DeliveryId} ({ShortSha(e.CommitSha)}).",
+        });
+        await db.SaveChangesAsync(ct);
+        return new WebhookResult(WebhookOutcome.Queued, deployment.Id);
+    }
+
     private static WebhookEvent NewEvent(
         Guid appId, string deliveryId, string eventType, string hash,
         WebhookEventStatus status, string? Ref = null, string? CommitSha = null, string? Error = null) => new()

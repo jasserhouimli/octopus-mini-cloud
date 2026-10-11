@@ -330,6 +330,20 @@ app.MapPost("/api/deployments/{id:guid}/retry", async (Guid id, OctopusDbContext
     return Results.Accepted($"/api/deployments/{deployment.Id}", new { deployment.Id, status = deployment.Status.ToString() });
 });
 
+app.MapPost("/api/webhook-events/{id:guid}/redeploy", async (Guid id, OctopusDbContext db, CancellationToken ct) =>
+{
+    var result = await WebhookService.RedeployAsync(db, id, ct);
+    return result.Outcome switch
+    {
+        WebhookOutcome.Queued => Results.Accepted($"/api/deployments/{result.DeploymentId}",
+            new { deploymentId = result.DeploymentId }),
+        WebhookOutcome.AppNotFound => Results.NotFound(new { error = result.Message }),
+        WebhookOutcome.BadPayload => Results.BadRequest(new { error = result.Message }),
+        WebhookOutcome.Conflict => Results.Conflict(new { error = result.Message }),
+        _ => Results.BadRequest(new { error = result.Message }),
+    };
+});
+
 app.MapPost("/api/apps/{id:guid}/stop", async (Guid id, OctopusDbContext db, ILogger<Program> log, CancellationToken ct) =>
 {
     var entity = await db.Apps.FindAsync([id], ct);

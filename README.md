@@ -209,6 +209,7 @@ Probes are loopback-only, so there is no SSRF surface.
 | GET | `/api/keys` | list keys (prefixes only, never hashes) |
 | POST | `/api/keys/{id}/revoke` | revoke a key |
 | GET | `/api/apps/{id}/webhook-events?take=50` | delivery receipts |
+| POST | `/api/webhook-events/{id}/redeploy` | re-run a push receipt as a fresh deployment (`409` if branch moved or work active) |
 | GET | `/api/apps/{id}/env` | list env key names only (values never returned) |
 | PUT | `/api/apps/{id}/env` | replace env set `{vars:{KEY:value}}`; max 50 vars, 8 KB/value, 64 KB total |
 | DELETE | `/api/apps/{id}/env/{key}` | remove one variable |
