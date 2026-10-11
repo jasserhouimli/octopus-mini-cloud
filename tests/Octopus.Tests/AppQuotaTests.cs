@@ -95,6 +95,7 @@ public sealed class DockerQuotaArgsTests
         var args = DockerRunner.BuildStartArgs("c", "img", 5100, 8080, null);
         Assert.Contains("--memory 512m", args);
         Assert.Contains("--cpus 1.0", args);
+        Assert.Contains("--restart unless-stopped", args);
     }
 
     [Fact]

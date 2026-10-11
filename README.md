@@ -236,7 +236,8 @@ the worker prunes older records when a deployment reaches a terminal state.
   docker `--env-file` (never in `docker run -e` args), list endpoints return key
   names only, logs record key names/count only. Keys `^[A-Za-z_][A-Za-z0-9_]*$`
   (max 64), values max 8 KB without NUL/newlines, max 50 vars / 64 KB per app.
-- Containers: bound to `127.0.0.1` only, per-app quotas (memory `128/256/512/1024/2048` MB,
+- Containers: bound to `127.0.0.1` only, `--restart unless-stopped` (crash/reboot
+  recovery; explicit stops still remove the container), per-app quotas (memory `128/256/512/1024/2048` MB,
   CPU `250/500/1000/2000` millicores; defaults `512`/`1000`), fixed host-port range `5100-5999`.
 - Process timeouts everywhere (clone 2m, build 10m, run 2m); log output truncated.
 - Payload limits: names/branches/URLs/paths length-checked; logs capped per-line and per-query.

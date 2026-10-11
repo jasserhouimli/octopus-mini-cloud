@@ -162,7 +162,9 @@ public sealed class DockerRunner
         string memory = "512m", string cpus = "1.0")
     {
         var envPart = envFilePath is null ? string.Empty : $" --env-file \"{envFilePath}\"";
-        return $"run -d --rm --name \"{containerName}\"{envPart} -p 127.0.0.1:{hostPort}:{containerPort} --memory {memory} --cpus {cpus} \"{imageName}\"";
+        // --rm + --restart unless-stopped: crashes and host reboots recover the app;
+        // explicit stops still remove the container.
+        return $"run -d --rm --restart unless-stopped --name \"{containerName}\"{envPart} -p 127.0.0.1:{hostPort}:{containerPort} --memory {memory} --cpus {cpus} \"{imageName}\"";
     }
 
     /// <summary>Docker --memory flag for a validated MB quota. Kept in Runtime so no Apps reference is needed.</summary>
